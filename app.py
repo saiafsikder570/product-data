@@ -1,92 +1,103 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+from fpdf import FPDF
+import base64
 
-# পেজ কনফিগারেশন
-st.set_page_config(page_title="Professional Sales Dashboard", layout="wide")
+# পেজ কনফিগারেশন ও ব্র্যান্ডিং
+st.set_page_config(page_title="Super Tasty Food Dashboard", layout="wide")
 
-# কাস্টম CSS স্টাইল
+# কাস্টম ডিজাইন (CSS)
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    h1 { color: #2E4053; text-align: center; }
+    .main { background-color: #0e1117; color: white; }
+    .stMetric { background-color: #1e2130; padding: 20px; border-radius: 15px; border: 1px solid #ff4b4b; }
+    h1, h2, h3 { color: #ff4b4b; font-family: 'SolaimanLipi', sans-serif; }
+    .stButton>button { background-color: #ff4b4b; color: white; border-radius: 10px; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📦 ডিজিটাল সেলস ও প্রফিট ট্র্যাকার")
-st.write("নিচে আপনার পণ্যের তথ্য আপডেট করুন এবং অর্ডারের সংখ্যা বসিয়ে ফলাফল দেখুন।")
+st.title("🍎 Super Tasty Food - সেলস ও মার্কেটিং ড্যাশবোর্ড")
 
-# প্রাথমিক ডেটা সেটআপ (আপনার স্ক্রিনশট অনুযায়ী)
-initial_data = [
-    ["মধু ছাড়া আখরোট (USA) ১ কেজি", 1100, 40, 85, 0, 1450, 0.15],
-    ["মধু ছাড়া আখরোট (USA) ৭০০ গ্রাম", 770, 30, 85, 0, 1050, 0.15],
-    ["মধু ছাড়া আখরোট (USA) ৫০০ গ্রাম", 550, 30, 85, 0, 800, 0.15],
-    ["১ কেজি কাঠবাদাম + ১ কেজি কাজু + ১ কেজি আখরোট", 4140, 150, 145, 0, 5200, 0.15],
-    ["২৫০ গ্রাম কাঠবাদাম + ২৫০ গ্রাম কাজু + ২৫০ গ্রাম আখরোট", 1035, 100, 0, 85, 1500, 0.15],
-    ["৫০০ গ্রাম গোল্ডেন কিসমিস + ৫০০ গ্রাম ব্ল্যাক কিসমিস", 740, 60, 85, 0, 1100, 0.15],
-    ["২৫০ গ্রাম কাজু + ২৫০ গ্রাম কাঠবাদাম", 685, 40, 0, 60, 950, 0.15]
-]
+# সাইডবার সেটিংস
+st.sidebar.header("⚙️ মার্কেটিং সেটিংস")
+usd_rate = st.sidebar.number_input("আজকের ডলার রেট (BDT)", value=130.0, step=0.5)
+ad_spend_usd = st.sidebar.number_input("মোট অ্যাড স্পেন্ড (USD)", value=0.0, step=1.0)
+ad_spend_bdt = ad_spend_usd * usd_rate
 
-columns = [
-    "প্রোডাক্টের নাম", "মূল দাম", "প্যাকেজিং খরচ", "ডেলিভারি (কোম্পানি)", 
-    "ডেলিভারি (কাস্টমার)", "সেল প্রাইজ", "রিটার্ন রেট"
-]
+st.sidebar.info(f"মোট অ্যাড খরচ: ৳ {ad_spend_bdt:,.2f}")
 
-df = pd.DataFrame(initial_data, columns=columns)
-df["কয়টা অর্ডার"] = 0 # ইউজার ইনপুট কলাম
+# প্রোডাক্ট ডেটা
+products_data = {
+    "প্রোডাক্টের নাম": [
+        "মধু ছাড়া আখরোট ১ কেজি", "মধু ছাড়া আখরোট ৭০০ গ্রাম", "১ কেজি কম্বো প্যাক",
+        "২৫০ গ্রাম কম্বো প্যাক", "কিসমিস ৫০০ গ্রাম প্যাক", "কাজু + কাঠবাদাম ২৫০ গ্রাম"
+    ],
+    "মূল দাম": [1100, 770, 4140, 1035, 740, 685],
+    "প্যাকেজিং": [40, 30, 150, 100, 60, 40],
+    "ডেলিভারি_কোম্পানি": [85, 85, 145, 0, 85, 0],
+    "সেল_প্রাইজ": [1750, 1050, 5200, 1500, 1100, 950]
+}
 
-# ড্যাশবোর্ড ইনপুট সেকশন
-st.subheader("📊 প্রোডাক্ট ডাটা এডিট করুন")
-edited_df = st.data_editor(
-    df,
-    column_config={
-        "কয়টা অর্ডার": st.column_config.NumberColumn("কয়টা অর্ডার", min_value=0, step=1),
-        "রিটার্ন রেট": st.column_config.NumberColumn("রিটার্ন রেট (Decimal)", format="%.2f"),
-    },
-    num_rows="dynamic",
-    hide_index=True,
-    use_container_width=True
-)
+df = pd.DataFrame(products_data)
+df["কয়টা অর্ডার"] = 0
 
-# ক্যালকুলেশন লজিক
-if not edited_df.empty:
-    # মোট প্রোডাক্ট দাম = (মূল দাম + প্যাকেট খরচ + কোম্পানি ডেলিভারি খরচ) * অর্ডার
-    edited_df["মোট প্রোডাক্ট দাম"] = (edited_df["মূল দাম"] + edited_df["প্যাকেজিং খরচ"] + edited_df["ডেলিভারি (কোম্পানি)"]) * edited_df["কয়টা অর্ডার"]
-    
-    # মোট রেভিনিউ = সেল প্রাইজ * অর্ডার
-    edited_df["মোট রেভিনিউ"] = edited_df["সেল প্রাইজ"] * edited_df["কয়টা অর্ডার"]
-    
-    # এভারেজ লাভ = (মোট রেভিনিউ - মোট দাম) * (1 - রিটার্ন রেট)
-    edited_df["এভারেজ লাভ"] = (edited_df["মোট রেভিনিউ"] - edited_df["মোট প্রোডাক্ট দাম"]) * (1 - edited_df["রিটার্ন রেট"])
+# ইনপুট টেবিল
+st.subheader("📝 প্রতিদিনের অর্ডারের তথ্য")
+edited_df = st.data_editor(df, use_container_width=True, hide_index=True)
 
-    # সামারি ক্যালকুলেশন
-    total_orders = edited_df["কয়টা অর্ডার"].sum()
-    total_rev = edited_df["মোট রেভিনিউ"].sum()
-    total_profit = edited_df["এভারেজ লাভ"].sum()
-    total_cost = edited_df["মোট প্রোডাক্ট দাম"].sum()
+# ক্যালকুলেশন
+edited_df["মোট খরচ"] = (edited_df["মূল দাম"] + edited_df["প্যাকেজিং"] + edited_df["ডেলিভারি_কোম্পানি"]) * edited_df["কয়টা অর্ডার"]
+edited_df["মোট রেভিনিউ"] = edited_df["সেল_প্রাইজ"] * edited_df["কয়টা অর্ডার"]
+total_rev = edited_df["মোট রেভিনিউ"].sum()
+total_prod_cost = edited_df["মোট খরচ"].sum()
+net_profit = total_rev - total_prod_cost - ad_spend_bdt
 
-    # রঙিন মেট্রিক ডিসপ্লে
-    st.divider()
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("মোট অর্ডার", f"{total_orders} টি", delta_color="normal")
-    m2.metric("মোট রেভিনিউ", f"৳{total_rev:,.0f}", delta_color="normal")
-    m3.metric("মোট খরচ", f"৳{total_cost:,.0f}", delta_color="inverse")
-    m4.metric("নিট প্রফিট", f"৳{total_profit:,.0f}", delta_color="normal")
+# ROAS ক্যালকুলেশন
+roas = total_rev / ad_spend_bdt if ad_spend_bdt > 0 else 0
 
-    # ফাইনাল টেবিল ডিসপ্লে
-    st.subheader("📝 বিস্তারিত রিপোর্ট")
-    st.dataframe(edited_df, use_container_width=True, hide_index=True)
+# মেট্রিক কার্ডস (Summary)
+st.divider()
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("মোট রেভিনিউ", f"৳{total_rev:,.0f}")
+c2.metric("অ্যাড খরচ (BDT)", f"৳{ad_spend_bdt:,.0f}")
+c3.metric("নিট লাভ", f"৳{net_profit:,.0f}")
+c4.metric("ROAS", f"{roas:.2f}x")
+c5.metric("মোট অর্ডার", f"{edited_df['কয়টা অর্ডার'].sum()} টি")
 
-    # ডাউনলোড বাটন
-    csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 রিপোর্ট ডাউনলোড করুন (CSV)",
-        data=csv,
-        file_name='daily_sales_report.csv',
-        mime='text/csv',
-    )
-else:
-    st.warning("দয়া করে কিছু ডেটা ইনপুট দিন।")
+# গ্রাফিকাল রিপোর্ট (এনিমেশন সহ)
+st.subheader("📈 সেলস এনালাইসিস")
+fig = px.bar(edited_df, x="প্রোডাক্টের নাম", y="মোট রেভিনিউ", 
+             color="মোট রেভিনিউ", template="plotly_dark", 
+             title="প্রোডাক্ট ভিত্তিক আয়", barmode='group')
+st.plotly_chart(fig, use_container_width=True)
+
+# PDF জেনারেটর ফাংশন
+def create_pdf(df, rev, profit, ad, roas_val):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt="Super Tasty Food - Daily Report", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.ln(10)
+    pdf.cell(200, 10, txt=f"Total Revenue: BDT {rev:,.2f}", ln=True)
+    pdf.cell(200, 10, txt=f"Ad Spend: BDT {ad:,.2f}", ln=True)
+    pdf.cell(200, 10, txt=f"Net Profit: BDT {profit:,.2f}", ln=True)
+    pdf.cell(200, 10, txt=f"ROAS: {roas_val:.2f}x", ln=True)
+    pdf.ln(10)
+    pdf.cell(200, 10, txt="Order Details:", ln=True)
+    for i, row in df.iterrows():
+        if row['কয়টা অর্ডার'] > 0:
+            pdf.cell(200, 8, txt=f"- {row['প্রোডাক্টের নাম']}: {row['কয়টা অর্ডার']} orders", ln=True)
+    return pdf.output(dest='S').encode('latin-1')
+
+# PDF ডাউনলোড বাটন
+st.subheader("📥 রিপোর্ট ডাউনলোড")
+pdf_data = create_pdf(edited_df, total_rev, net_profit, ad_spend_bdt, roas)
+st.download_button(label="📄 PDF রিপোর্ট ডাউনলোড করুন", 
+                   data=pdf_data, 
+                   file_name="daily_report.pdf", 
+                   mime="application/pdf")
 
 st.markdown("---")
-st.caption("Developed for Professional Digital Marketing Management")
+st.caption("© Super Tasty Food | Dashboard v2.0")
