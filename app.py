@@ -1,103 +1,100 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from fpdf import FPDF
-import base64
+import io
 
-# পেজ কনফিগারেশন ও ব্র্যান্ডিং
-st.set_page_config(page_title="Super Tasty Food Dashboard", layout="wide")
+# পেজ কনফিগারেশন
+st.set_page_config(page_title="Super Tasty Food - Pro Dashboard", layout="wide", page_icon="🍱")
 
-# কাস্টম ডিজাইন (CSS)
+# কাস্টম স্টাইল (আধুনিক ফুড থিম)
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; color: white; }
-    .stMetric { background-color: #1e2130; padding: 20px; border-radius: 15px; border: 1px solid #ff4b4b; }
-    h1, h2, h3 { color: #ff4b4b; font-family: 'SolaimanLipi', sans-serif; }
-    .stButton>button { background-color: #ff4b4b; color: white; border-radius: 10px; width: 100%; }
+    .main { background-color: #111; color: #fff; }
+    .stMetric { background: #222; padding: 20px; border-radius: 15px; border-left: 5px solid #ffcc00; }
+    h1, h2 { color: #ffcc00; text-align: center; font-weight: bold; }
+    .stButton>button { background: linear-gradient(45deg, #ff9900, #ffcc00); color: black; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🍎 Super Tasty Food - সেলস ও মার্কেটিং ড্যাশবোর্ড")
+st.title("🍱 Super Tasty Food - প্রফেশনাল ড্যাশবোর্ড")
 
-# সাইডবার সেটিংস
-st.sidebar.header("⚙️ মার্কেটিং সেটিংস")
-usd_rate = st.sidebar.number_input("আজকের ডলার রেট (BDT)", value=130.0, step=0.5)
-ad_spend_usd = st.sidebar.number_input("মোট অ্যাড স্পেন্ড (USD)", value=0.0, step=1.0)
+# --- সাইডবার: মার্কেটিং সেটিংস ---
+st.sidebar.header("🚀 মার্কেটিং এনালাইসিস")
+usd_rate = st.sidebar.number_input("আজকের ডলার রেট (BDT)", value=125.0)
+ad_spend_usd = st.sidebar.number_input("ফেসবুক অ্যাড স্পেন্ড (USD)", value=0.0)
 ad_spend_bdt = ad_spend_usd * usd_rate
 
-st.sidebar.info(f"মোট অ্যাড খরচ: ৳ {ad_spend_bdt:,.2f}")
+# --- ইনপুট মেথড সেকশন ---
+st.subheader("📥 ডাটা ইনপুট মেথড")
+input_tab1, input_tab2 = st.tabs(["📋 ম্যানুয়াল ও কপি-পেস্ট", "📂 CSV আপলোড"])
 
-# প্রোডাক্ট ডেটা
-products_data = {
-    "প্রোডাক্টের নাম": [
-        "মধু ছাড়া আখরোট ১ কেজি", "মধু ছাড়া আখরোট ৭০০ গ্রাম", "১ কেজি কম্বো প্যাক",
-        "২৫০ গ্রাম কম্বো প্যাক", "কিসমিস ৫০০ গ্রাম প্যাক", "কাজু + কাঠবাদাম ২৫০ গ্রাম"
-    ],
-    "মূল দাম": [1100, 770, 4140, 1035, 740, 685],
-    "প্যাকেজিং": [40, 30, 150, 100, 60, 40],
-    "ডেলিভারি_কোম্পানি": [85, 85, 145, 0, 85, 0],
-    "সেল_প্রাইজ": [1750, 1050, 5200, 1500, 1100, 950]
-}
+# ডিফল্ট ডাটা ফ্রেম
+initial_df = pd.DataFrame([
+    {"প্রোডাক্টের নাম": "মধু ছাড়া আখরোট ১ কেজি", "মূল দাম": 1100, "প্যাকেজিং": 40, "ডেলিভারি_কোম্পানি": 85, "সেল_প্রাইজ": 1750, "অর্ডার": 0},
+    {"প্রোডাক্টের নাম": "১ কেজি স্পেশাল কম্বো (কাঠ+কাজু+আখরোট)", "মূল দাম": 4140, "প্যাকেজিং": 150, "ডেলিভারি_কোম্পানি": 145, "সেল_প্রাইজ": 5200, "অর্ডার": 0},
+    {"প্রোডাক্টের নাম": "২৫০ গ্রাম মিক্সড ড্রাই ফ্রুট কম্বো", "মূল দাম": 1035, "প্যাকেজিং": 100, "ডেলিভারি_কোম্পানি": 0, "সেল_প্রাইজ": 1500, "অর্ডার": 0},
+    {"প্রোডাক্টের নাম": "৫০০ গ্রাম গোল্ডেন ও ব্ল্যাক কিসমিস কম্বো", "মূল দাম": 740, "প্যাকেজিং": 60, "ডেলিভারি_কোম্পানি": 85, "সেল_প্রাইজ": 1100, "অর্ডার": 0},
+])
 
-df = pd.DataFrame(products_data)
-df["কয়টা অর্ডার"] = 0
+with input_tab1:
+    st.write("নিচের টেবিলে আপনি সরাসরি ডাটা টাইপ করতে পারেন অথবা গুগল শিট থেকে কপি করে পেস্ট করতে পারেন।")
+    # 'num_rows="dynamic"' ব্যবহারের ফলে আপনি যত খুশি রো যোগ করতে পারবেন
+    edited_df = st.data_editor(initial_df, num_rows="dynamic", use_container_width=True)
 
-# ইনপুট টেবিল
-st.subheader("📝 প্রতিদিনের অর্ডারের তথ্য")
-edited_df = st.data_editor(df, use_container_width=True, hide_index=True)
+with input_tab2:
+    uploaded_file = st.file_uploader("আপনার CSV ফাইলটি এখানে আপলোড করুন", type="csv")
+    if uploaded_file:
+        edited_df = pd.read_csv(uploaded_file)
 
-# ক্যালকুলেশন
-edited_df["মোট খরচ"] = (edited_df["মূল দাম"] + edited_df["প্যাকেজিং"] + edited_df["ডেলিভারি_কোম্পানি"]) * edited_df["কয়টা অর্ডার"]
-edited_df["মোট রেভিনিউ"] = edited_df["সেল_প্রাইজ"] * edited_df["কয়টা অর্ডার"]
-total_rev = edited_df["মোট রেভিনিউ"].sum()
-total_prod_cost = edited_df["মোট খরচ"].sum()
-net_profit = total_rev - total_prod_cost - ad_spend_bdt
+# --- ক্যালকুলেশন ইঞ্জিন ---
+if not edited_df.empty:
+    # মোট প্রোডাক্ট কস্ট = (মূল দাম + প্যাকেজিং + ডেলিভারি) * অর্ডার
+    edited_df["মোট খরচ"] = (edited_df["মূল দাম"] + edited_df["প্যাকেজিং"] + edited_df["ডেলিভারি_কোম্পানি"]) * edited_df["অর্ডার"]
+    # মোট রেভিনিউ = সেল প্রাইজ * অর্ডার
+    edited_df["মোট রেভিনিউ"] = edited_df["সেল_প্রাইজ"] * edited_df["অর্ডার"]
+    
+    total_revenue = edited_df["মোট রেভিনিউ"].sum()
+    total_product_cost = edited_df["মোট খরচ"].sum()
+    net_profit = total_revenue - total_product_cost - ad_spend_bdt
+    roas = total_revenue / ad_spend_bdt if ad_spend_bdt > 0 else 0
 
-# ROAS ক্যালকুলেশন
-roas = total_rev / ad_spend_bdt if ad_spend_bdt > 0 else 0
+    # --- মেট্রিক কার্ডস ---
+    st.divider()
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("মোট রেভিনিউ", f"৳{total_revenue:,.0f}")
+    m2.metric("অ্যাড খরচ (BDT)", f"৳{ad_spend_bdt:,.0f}")
+    m3.metric("নিট প্রফিট", f"৳{net_profit:,.0f}")
+    m4.metric("ROAS", f"{roas:.2f}x")
 
-# মেট্রিক কার্ডস (Summary)
-st.divider()
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("মোট রেভিনিউ", f"৳{total_rev:,.0f}")
-c2.metric("অ্যাড খরচ (BDT)", f"৳{ad_spend_bdt:,.0f}")
-c3.metric("নিট লাভ", f"৳{net_profit:,.0f}")
-c4.metric("ROAS", f"{roas:.2f}x")
-c5.metric("মোট অর্ডার", f"{edited_df['কয়টা অর্ডার'].sum()} টি")
+    # --- গ্রাফিকাল ভিউ (অ্যানিমেশন সহ) ---
+    st.subheader("📊 সেলস পারফরম্যান্স গ্রাফ")
+    fig = px.bar(edited_df[edited_df["অর্ডার"] > 0], 
+                 x="প্রোডাক্টের নাম", y="মোট রেভিনিউ", 
+                 color="মোট রেভিনিউ", 
+                 text_auto='.2s',
+                 title="কোন প্রোডাক্ট থেকে কত আয় হলো",
+                 template="plotly_dark",
+                 color_continuous_scale='YlOrRd')
+    st.plotly_chart(fig, use_container_width=True)
 
-# গ্রাফিকাল রিপোর্ট (এনিমেশন সহ)
-st.subheader("📈 সেলস এনালাইসিস")
-fig = px.bar(edited_df, x="প্রোডাক্টের নাম", y="মোট রেভিনিউ", 
-             color="মোট রেভিনিউ", template="plotly_dark", 
-             title="প্রোডাক্ট ভিত্তিক আয়", barmode='group')
-st.plotly_chart(fig, use_container_width=True)
-
-# PDF জেনারেটর ফাংশন
-def create_pdf(df, rev, profit, ad, roas_val):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="Super Tasty Food - Daily Report", ln=True, align='C')
-    pdf.set_font("Arial", size=12)
-    pdf.ln(10)
-    pdf.cell(200, 10, txt=f"Total Revenue: BDT {rev:,.2f}", ln=True)
-    pdf.cell(200, 10, txt=f"Ad Spend: BDT {ad:,.2f}", ln=True)
-    pdf.cell(200, 10, txt=f"Net Profit: BDT {profit:,.2f}", ln=True)
-    pdf.cell(200, 10, txt=f"ROAS: {roas_val:.2f}x", ln=True)
-    pdf.ln(10)
-    pdf.cell(200, 10, txt="Order Details:", ln=True)
-    for i, row in df.iterrows():
-        if row['কয়টা অর্ডার'] > 0:
-            pdf.cell(200, 8, txt=f"- {row['প্রোডাক্টের নাম']}: {row['কয়টা অর্ডার']} orders", ln=True)
-    return pdf.output(dest='S').encode('latin-1')
-
-# PDF ডাউনলোড বাটন
-st.subheader("📥 রিপোর্ট ডাউনলোড")
-pdf_data = create_pdf(edited_df, total_rev, net_profit, ad_spend_bdt, roas)
-st.download_button(label="📄 PDF রিপোর্ট ডাউনলোড করুন", 
-                   data=pdf_data, 
-                   file_name="daily_report.pdf", 
-                   mime="application/pdf")
+    # --- রিপোর্ট এক্সপোর্ট সেকশন ---
+    st.subheader("📥 রিপোর্ট এক্সপোর্ট")
+    
+    # এক্সেল ফরম্যাটে ডাউনলোড (পিডিএফ এরর এড়াতে এটি সবচেয়ে ভালো ব্যবসার জন্য)
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        edited_df.to_excel(writer, index=False, sheet_name='Daily_Report')
+        # সামারি শিট
+        summary_df = pd.DataFrame({"Category": ["Revenue", "Ad Spend", "Net Profit", "ROAS"],
+                                  "Value": [total_revenue, ad_spend_bdt, net_profit, roas]})
+        summary_df.to_excel(writer, index=False, sheet_name='Summary')
+    
+    st.download_button(
+        label="📄 প্রফেশনাল এক্সেল রিপোর্ট ডাউনলোড করুন",
+        data=buffer,
+        file_name="Super_Tasty_Food_Report.xlsx",
+        mime="application/vnd.ms-excel"
+    )
 
 st.markdown("---")
-st.caption("© Super Tasty Food | Dashboard v2.0")
+st.caption("© Super Tasty Food | Pro Business Management System")
