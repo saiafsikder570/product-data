@@ -9,95 +9,90 @@ st.set_page_config(page_title="Super Tasty Food - Smart Dashboard", layout="wide
 
 st.markdown("""
     <style>
-    .main { background-color: #0f1116; color: #ffffff; }
-    .stMetric { background-color: #1a1c24; padding: 15px; border-radius: 12px; border-top: 4px solid #f39c12; }
-    h1 { color: #f39c12; text-align: center; }
+    .main { background-color: #0e1117; color: white; }
+    .stMetric { background-color: #1e2130; padding: 20px; border-radius: 15px; border-top: 5px solid #ff4b4b; }
+    h1 { color: #ff4b4b; text-align: center; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🍎 Super Tasty Food - স্মার্ট সেলস ড্যাশবোর্ড")
+st.title("🍱 Super Tasty Food - স্মার্ট সেলস ট্র্যাকার")
 st.markdown("<p style='text-align: center;'>Keshobpur, Jashore</p>", unsafe_allow_html=True)
 
 # ২. সাইডবার: মার্কেটিং ইনপুট
-st.sidebar.header("📊 মার্কেটিং এনালাইসিস")
+st.sidebar.header("🚀 মার্কেটিং এনালাইসিস")
 usd_rate = st.sidebar.number_input("আজকের ডলার রেট (BDT)", value=125.0)
 ad_spend_usd = st.sidebar.number_input("ফেসবুক অ্যাড স্পেন্ড (USD)", value=0.0)
 ad_spend_bdt = ad_spend_usd * usd_rate
 
-# ৩. স্মার্ট ডাটা হ্যান্ডলিং ফাংশন
-def process_data(df):
-    # প্রয়োজনীয় কলামের সম্ভাব্য নাম (Alias)
-    mapping = {
-        "মূল দাম": ["মূল দাম", "Cost", "Base Price"],
-        "প্যাকেজিং খরচ": ["প্যাকেজিং খরচ", "প্যাকেজিং", "Packaging"],
-        "ডেলিভারি (কোম্পানি)": ["ডেলিভারি (কোম্পানি)", "Delivery Co", "Delivery Cost"],
-        "সেল প্রাইজ": ["সেল প্রাইজ", "Sale Price", "Selling Price"],
-        "রিটার্ন রেট (Decimal)": ["রিটার্ন রেট (Decimal)", "Return Rate", "Return"],
-        "কয়টা অর্ডার": ["কয়টা অর্ডার", "অর্ডার", "Orders", "Qty"]
-    }
-    
-    # ডাইনামিকভাবে কলাম খুঁজে বের করা বা নতুন তৈরি করা
-    for final_name, aliases in mapping.items():
-        found = False
-        for alias in aliases:
-            if alias in df.columns:
-                df[final_name] = pd.to_numeric(df[alias], errors='coerce').fillna(0)
-                found = True
-                break
-        if not found:
-            df[final_name] = 0.0
-            
-    # ক্যালকুলেশন
-    df["মোট খরচ"] = (df["মূল দাম"] + df["প্যাকেজিং খরচ"] + df["ডেলিভারি (কোম্পানি)"]) * df["কয়টা অর্ডার"]
-    df["মোট রেভিনিউ"] = df["সেল প্রাইজ"] * df["কয়টা অর্ডার"]
-    df["এভারেজ লাভ"] = (df["মোট রেভিনিউ"] - df["মোট খরচ"]) * (1 - df["রিটার্ন রেট (Decimal)"])
-    return df
+# ৩. আপনার গুগল শিটের ১১টি কলামের হুবহু তালিকা
+COLUMN_LIST = [
+    "প্রোডাক্টের নাম", "মূল দাম", "প্যাকেজিং খরচ", "ডেলিভারি চার্জ কোম্পানি বহন করবে", 
+    "ডেলিভারি চার্জ কাস্টমার বহন করবে", "সেল প্রাইজ", "কয়টা অর্ডার", 
+    "মোট প্রোডাক্ট দাম", "মোট রেভিনিউ / সেল", "রিটার্ন রেট", "এভারেজ লাভ"
+]
 
-# ৪. ডাটা ইনপুট
-st.subheader("📥 ডাটা আপডেট করুন")
+# ৪. ডাটা ইনপুট মেথড
+st.subheader("📥 ডাটা আপডেট করুন (১১টি কলাম মেইনটেইন করুন)")
 input_tab1, input_tab2 = st.tabs(["📋 ম্যানুয়াল/কপি-পেস্ট", "📂 CSV আপলোড"])
 
+# ডিফল্ট ডাটা ফ্রেম
+default_df = pd.DataFrame(columns=COLUMN_LIST)
+
 with input_tab1:
-    # শুরুতে খালি টেবিল যা কপি-পেস্ট সাপোর্ট করে
-    df_input = st.data_editor(pd.DataFrame(columns=["প্রোডাক্টের নাম", "মূল দাম", "প্যাকেজিং খরচ", "ডেলিভারি (কোম্পানি)", "সেল প্রাইজ", "রিটার্ন রেট (Decimal)", "কয়টা অর্ডার"]), num_rows="dynamic", use_container_width=True)
+    st.write("গুগল শিট থেকে ১১টি কলাম একসাথে কপি করে এখানে প্রথম ঘরে পেস্ট করুন।")
+    edited_df = st.data_editor(default_df, num_rows="dynamic", use_container_width=True, hide_index=True)
 
 with input_tab2:
-    uploaded_file = st.file_uploader("CSV ফাইল দিন", type="csv")
+    uploaded_file = st.file_uploader("আপনার CSV ফাইলটি আপলোড করুন", type="csv")
     if uploaded_file:
-        df_input = pd.read_csv(uploaded_file)
+        raw_df = pd.read_csv(uploaded_file)
+        # আপলোড করা ফাইলে কলাম কম থাকলে ১১টি কলামে সাজিয়ে নেওয়া
+        edited_df = raw_df.reindex(columns=COLUMN_LIST).fillna(0)
+    else:
+        edited_df = default_df
 
-# ৫. রিপোর্ট জেনারেশন ও ডিসপ্লে
-if not df_input.empty:
-    df_final = process_data(df_input)
-    
-    total_revenue = df_final["মোট রেভিনিউ"].sum()
-    total_cost = df_final["মোট খরচ"].sum()
-    net_profit = total_revenue - total_cost - ad_spend_bdt
-    roas = total_revenue / ad_spend_bdt if ad_spend_bdt > 0 else 0
+# ৫. ক্যালকুলেশন ইঞ্জিন
+if not edited_df.empty:
+    # ডাটা টাইপ ঠিক করা (সংখ্যা নিশ্চিত করা)
+    numeric_cols = ["মূল দাম", "প্যাকেজিং খরচ", "ডেলিভারি চার্জ কোম্পানি বহন করবে", "সেল প্রাইজ", "কয়টা অর্ডার", "রিটার্ন রেট"]
+    for col in numeric_cols:
+        if col in edited_df.columns:
+            edited_df[col] = pd.to_numeric(edited_df[col], errors='coerce').fillna(0)
 
-    # মেট্রিক কার্ডস
+    # ক্যালকুলেশন লজিক
+    # মোট প্রোডাক্ট দাম = (মূল দাম + প্যাকেজিং + ডেলিভারি কোং) * অর্ডার
+    edited_df["মোট প্রোডাক্ট দাম"] = (edited_df["মূল দাম"] + edited_df["প্যাকেজিং খরচ"] + edited_df["ডেলিভারি চার্জ কোম্পানি বহন করবে"]) * edited_df["কয়টা অর্ডার"]
+    # মোট রেভিনিউ = সেল প্রাইজ * অর্ডার
+    edited_df["মোট রেভিনিউ / সেল"] = edited_df["সেল প্রাইজ"] * edited_df["কয়টা অর্ডার"]
+    # এভারেজ লাভ = (মোট রেভিনিউ - মোট প্রোডাক্ট দাম) * (1 - রিটার্ন রেট)
+    edited_df["এভারেজ লাভ"] = (edited_df["মোট রেভিনিউ / সেল"] - edited_df["মোট প্রোডাক্ট দাম"]) * (1 - edited_df["রিটার্ন রেট"])
+
+    # সামারি মেট্রিক্স
+    total_rev = edited_df["মোট রেভিনিউ / সেল"].sum()
+    total_cost = edited_df["মোট প্রোডাক্ট দাম"].sum()
+    net_profit = total_rev - total_cost - ad_spend_bdt
+    roas = total_rev / ad_spend_bdt if ad_spend_bdt > 0 else 0
+
+    # মেট্রিক ডিসপ্লে
     st.divider()
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("মোট রেভিনিউ", f"৳{total_revenue:,.0f}")
+    c1.metric("মোট রেভিনিউ", f"৳{total_rev:,.0f}")
     c2.metric("অ্যাড খরচ (BDT)", f"৳{ad_spend_bdt:,.0f}")
-    c3.metric("নিট লাভ (অ্যাড বাদে)", f"৳{net_profit:,.0f}")
+    c3.metric("নিট লাভ", f"৳{net_profit:,.0f}")
     c4.metric("ROAS", f"{roas:.2f}x")
 
-    # ৬. প্রফেশনাল পিডিএফ জেনারেটর (FPDF)
+    # ৬. প্রফেশনাল পিডিএফ জেনারেটর
     def generate_pdf():
         pdf = FPDF()
         pdf.add_page()
-        
-        # হেডার: ব্র্যান্ডিং
-        pdf.set_font("Arial", 'B', 18)
+        pdf.set_font("Arial", 'B', 20)
         pdf.cell(200, 10, txt="Super Tasty Food", ln=True, align='C')
         pdf.set_font("Arial", '', 10)
         pdf.cell(200, 8, txt="Location: Keshobpur, Jashore", ln=True, align='C')
         pdf.ln(10)
         
-        # সামারি সেকশন
         pdf.set_font("Arial", 'B', 14)
-        pdf.cell(200, 10, txt="Daily Sales Summary Report", ln=True)
+        pdf.cell(200, 10, txt="Daily Business Summary Report", ln=True)
         pdf.set_font("Arial", '', 12)
         pdf.cell(200, 8, txt=f"Total Revenue: BDT {total_revenue:,.2f}", ln=True)
         pdf.cell(200, 8, txt=f"Ad Spend (USD): {ad_spend_usd} (Rate: {usd_rate})", ln=True)
@@ -105,20 +100,18 @@ if not df_input.empty:
         pdf.cell(200, 8, txt=f"Net Profit: BDT {net_profit:,.2f}", ln=True)
         pdf.cell(200, 8, txt=f"ROAS: {roas:.2f}x", ln=True)
         
-        # ফুটার
         pdf.ln(20)
         pdf.set_font("Arial", 'I', 8)
-        pdf.cell(200, 10, txt="Generated by Super Tasty Food Smart Dashboard", ln=True, align='C')
-        
+        pdf.cell(200, 10, txt="Generated by STF Smart Dashboard", ln=True, align='C')
         return pdf.output(dest='S').encode('latin-1', 'ignore')
 
     st.subheader("📊 বিস্তারিত রিপোর্ট")
-    st.dataframe(df_final, use_container_width=True)
+    st.dataframe(edited_df, use_container_width=True)
 
-    # পিডিএফ ডাউনলোড বাটন
-    st.subheader("📥 ডাউনলোড সেকশন")
+    # পিডিএফ ডাউনলোড
+    st.subheader("📥 ডাউনলোড করুন")
     pdf_output = generate_pdf()
-    st.download_button(label="📄 প্রফেশনাল পিডিএফ ডাউনলোড করুন", data=pdf_output, file_name="Daily_Business_Report.pdf", mime="application/pdf")
+    st.download_button(label="📄 পিডিএফ রিপোর্ট ডাউনলোড", data=pdf_output, file_name="Daily_Report_STF.pdf", mime="application/pdf")
 
 st.markdown("---")
-st.caption("Developed for Super Tasty Food | Keshobpur, Jashore")
+st.caption("Developed for Super Tasty Food | Pro Management System")
